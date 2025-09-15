@@ -1,0 +1,31 @@
+service: bonzai-booking
+
+provider:
+  name: aws
+  runtime: nodejs20.x
+  region: eu-north-1
+  profile: bonzai
+  iam:
+    role: arn:aws:iam::365535501605:role/bonzai-booking-role
+
+functions:
+  createBooking:
+    handler: createBooking/index.handler
+    events:
+      - http:
+          path: bookings
+          method: post
+
+resources:
+  Resources:
+    BookingsTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        TableName: Bookings
+        AttributeDefinitions:
+          - AttributeName: bookingID
+            AttributeType: S
+        KeySchema:
+          - AttributeName: bookingID
+            KeyType: HASH
+        BillingMode: PAY_PER_REQUEST
