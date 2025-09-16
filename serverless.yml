@@ -16,6 +16,13 @@ functions:
           path: bookings
           method: post
 
+  getBookings:
+    handler: getBookings/index.handler
+    events:
+      - http:
+          path: bookings
+          method: get
+
 resources:
   Resources:
     BookingsTable:

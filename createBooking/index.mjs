@@ -37,12 +37,20 @@ export const handler = async (event) => {
 
     const data = JSON.parse(event.body);
 
-    if (!data.guestName || !data.rooms) {
+    if (
+      !data.guestName ||
+      !data.guestEmail ||
+      !data.numGuests ||
+      !data.checkInDate ||
+      !data.checkOutDate ||
+      !data.totalPrice ||
+      !data.rooms ||
+      !Array.isArray(data.rooms) ||
+      data.rooms.length === 0
+    ) {
       return {
         statusCode: 400,
-        body: JSON.stringify({
-          message: "Missing required fields: guestName or rooms",
-        }),
+        body: JSON.stringify({ message: "Missing or invalid booking data" }),
       };
     }
 
