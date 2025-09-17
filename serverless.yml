@@ -4,9 +4,21 @@ provider:
   name: aws
   runtime: nodejs20.x
   region: eu-north-1
-  profile: bonzai
-  iam:
-    role: arn:aws:iam::365535501605:role/bonzai-booking-role
+  profile: ${opt:aws-profile, 'default'} # använder sig av default profilen om ingen annan anges
+
+  enivonment:
+    TABLE_NAME: ${self:service}-Bookings # dynamodb tabell namn, miljövariabel som skickas in i alla lambdas, gör att koden kan läsa tabellnamnet via process.env.TABLE_NAME
+
+iamRoleStatements: # Här definierar vilka rättigheter våra lambdas ska ha
+    - Effect: Allow
+      Action: # tillåter vilka actions som lambdan får göra
+        - dynamodb:PutItem
+        - dynamodb:GetItem
+        - dynamodb:UpdateItem
+        - dynamodb:DeleteItem
+      Resource:
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TABLE_NAME}
+
 
 functions:
   createBooking:
@@ -15,6 +27,7 @@ functions:
       - http:
           path: bookings
           method: post
+          cors: true
 
 resources:
   Resources:
@@ -23,9 +36,10 @@ resources:
       Properties:
         TableName: Bookings
         AttributeDefinitions:
-          - AttributeName: bookingID
+          - AttributeName: bookingId
             AttributeType: S
         KeySchema:
-          - AttributeName: bookingID
+          - AttributeName: bookingId
             KeyType: HASH
         BillingMode: PAY_PER_REQUEST
+ 
