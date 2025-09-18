@@ -13,7 +13,7 @@ function generateBookingID(length = 6) {
 
 function handleBooking(data) {
   return {
-    bookingID: { S: generateBookingID() },
+    bookingId: { S: generateBookingID() },
     guestName: { S: data.guestName },
     guestEmail: { S: data.guestEmail },
     numGuests: { N: data.numGuests.toString() },
