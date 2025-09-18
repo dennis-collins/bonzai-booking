@@ -55,7 +55,7 @@ export const handler = async (event) => {
     }
 
     const params = {
-      TableName: "Bookings",
+      TableName: process.env.TABLE_NAME,
       Item: handleBooking(data),
     };
 

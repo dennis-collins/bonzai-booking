@@ -1,7 +1,7 @@
 service: bonzai-booking
 
 custom:
-  tableName: bonzai-booking-Bookings   # <- definiera EN gång här
+  tableName: bonzai-booking-Bookings # <- definiera EN gång här
 
 provider:
   name: aws
@@ -10,17 +10,18 @@ provider:
   profile: ${opt:aws-profile, 'default'}
 
   environment:
-    TABLE_NAME: ${self:custom.tableName}        # <- använd här
+    TABLE_NAME: ${self:custom.tableName} # <- använd här
 
-  iamRoleStatements:                            # Lambda-behörigheter till just vår tabell
+  iamRoleStatements: # Lambda-behörigheter till just vår tabell
     - Effect: Allow
       Action:
         - dynamodb:PutItem
         - dynamodb:GetItem
+        - dynamodb:Scan
         - dynamodb:UpdateItem
         - dynamodb:DeleteItem
       Resource:
-        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.tableName}  # <- och här
+        - arn:aws:dynamodb:${self:provider.region}:*:table/${self:custom.tableName} # <- och här
 
 functions:
   createBooking:
@@ -43,7 +44,7 @@ resources:
     BookingsTable:
       Type: AWS::DynamoDB::Table
       Properties:
-        TableName: ${self:custom.tableName}     # <- och här
+        TableName: ${self:custom.tableName} # <- och här
         BillingMode: PAY_PER_REQUEST
         AttributeDefinitions:
           - AttributeName: bookingId
