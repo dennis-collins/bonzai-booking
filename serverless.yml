@@ -39,6 +39,13 @@ functions:
           path: bookings
           method: get
 
+  getBookingById:
+    handler: getBookingById/index.handler
+    events:
+      - http:
+          path: bookings/{id}
+          method: get
+
 resources:
   Resources:
     BookingsTable:

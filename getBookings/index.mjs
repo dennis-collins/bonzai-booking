@@ -1,11 +1,10 @@
-import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
-import { ScanCommand } from "@aws-sdk/client-dynamodb";
-
-const client = new DynamoDBClient({ region: "eu-north-1" });
+import { ddb } from "../lib/ddb.mjs";
+import { ScanCommand } from "@aws-sdk/lib-dynamodb";
+import { errorResponse, InternalError } from "../lib/error.mjs";
 
 export const handler = async () => {
   try {
-    const data = await client.send(
+    const data = await ddb.send(
       new ScanCommand({ TableName: process.env.TABLE_NAME })
     );
 
@@ -15,12 +14,6 @@ export const handler = async () => {
     };
   } catch (error) {
     console.error("Error fetching bookings:", error);
-    return {
-      statusCode: 500,
-      body: JSON.stringify({
-        message: "Failed to fetch bookings",
-        error: error.message,
-      }),
-    };
+    return errorResponse(new InternalError(error.message));
   }
 };
