@@ -5,7 +5,9 @@ const client = new DynamoDBClient({ region: "eu-north-1" });
 
 export const handler = async () => {
   try {
-    const data = await client.send(new ScanCommand({ TableName: "Bookings" }));
+    const data = await client.send(
+      new ScanCommand({ TableName: process.env.TABLE_NAME })
+    );
 
     return {
       statusCode: 200,
