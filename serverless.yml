@@ -43,8 +43,29 @@ functions:
     handler: getBookingById/index.handler
     events:
       - http:
-          path: bookings/{id}
+          path: bookings/{bookingId}
           method: get
+
+  changeBooking:
+    handler: changeBooking/index.handler
+    events:
+      - http:
+          path: bookings/{bookingId}
+          method: put
+
+  confirmBooking:
+    handler: confirmBooking/index.handler
+    events:
+      - http:
+          path: bookings/confirm
+          method: post
+
+  removeBooking:
+    handler: removeBooking/index.handler
+    events:
+      - http:
+          path: bookings/{bookingId}
+          method: delete
 
 resources:
   Resources:

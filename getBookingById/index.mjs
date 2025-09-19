@@ -9,7 +9,7 @@ import {
 
 export const handler = async (event) => {
   try {
-    const bookingId = event.pathParameters?.id;
+    const bookingId = event.pathParameters?.bookingId;
 
     if (!bookingId) {
       throw new ValidationError("Booking ID is required");
