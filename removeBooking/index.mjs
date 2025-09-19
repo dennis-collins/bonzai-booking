@@ -49,9 +49,12 @@ export const handler = async (event) => {
     }
 
     return {
-      statusCode: 204,
+      statusCode: 200,
       headers: { "Content-Type": "application/json" },
-      body: null,
+      body: JSON.stringify({
+        message: `Din bokning med ID ${bookingId} har raderats.`,
+        deletedBooking: result.Attributes,
+      }),
     };
   } catch (err) {
     // DynamoDB condition fail (fel guestEmail) maskeras som 404
