@@ -1,4 +1,5 @@
 import { DynamoDBClient, PutItemCommand } from "@aws-sdk/client-dynamodb";
+import { handler as confirmBooking } from "../confirmBooking/index.mjs";
 
 const client = new DynamoDBClient({ region: "eu-north-1" });
 
@@ -61,9 +62,11 @@ export const handler = async (event) => {
 
     await client.send(new PutItemCommand(params));
 
+    const confirmation = await confirmBooking({ body: JSON.stringify(data) });
+
     return {
       statusCode: 200,
-      body: JSON.stringify({ message: "Booking created", booking: data }),
+      body: confirmation.body,
     };
   } catch (error) {
     console.error("Error creating booking:", error);

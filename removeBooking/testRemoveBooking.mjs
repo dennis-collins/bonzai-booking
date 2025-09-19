@@ -4,7 +4,7 @@ import { handler } from "./index.mjs";
 // Mock-event som liknar det API Gateway skickar
 const event = {
   pathParameters: {
-    bookingId: "1GT96X", // <-- ändra till ett ID som finns i din DynamoDB-tabell
+    bookingId: "ALZ3R5", // <-- ändra till ett ID som finns i din DynamoDB-tabell
   },
   body: JSON.stringify({
     guestEmail: "alice@example.com", // valfritt, kan tas bort om du inte använder condition
