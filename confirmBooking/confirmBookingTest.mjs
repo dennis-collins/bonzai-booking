@@ -2,6 +2,7 @@ import { handler } from "./index.mjs";
 
 const event = {
   body: JSON.stringify({
+    // Här är ett fake booking som du kan testa om du vill, men jag har gjort att confirmBooking körs automatiskt när createBooking lyckas, den visas i konsolen
     bookingId: "ABC123",
     guestName: "Alice Example",
     guestEmail: "alice@example.com",

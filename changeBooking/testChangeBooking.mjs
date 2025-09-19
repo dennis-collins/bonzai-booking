@@ -1,12 +1,11 @@
-// testChangeBooking.mjs
 import { handler } from "./index.mjs";
 
 const event = {
-  pathParameters: { bookingId: "ALZ3R5" }, // byt till ett som finns
+  pathParameters: { bookingId: "ALZ3R5" }, // byt bookingId till ett id som finns i dynamoDB
   body: JSON.stringify({
     // fält att uppdatera (skicka de du vill)
     totalPrice: 350,
-    // Guard – kräver att nuvarande guestEmail i DB är denna (om du vill)
+    // Guard – kräver att nuvarande guestEmail i DB är denna (valfritt)
     guardGuestEmail: "alice@example.com",
   }),
 };
