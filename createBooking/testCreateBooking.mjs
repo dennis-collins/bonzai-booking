@@ -1,5 +1,4 @@
-// testCreateBooking.mjs
-import { handler } from "./index.mjs"; // ändra path om filen ligger annorlunda
+import { handler } from "./index.mjs";
 
 // Mock-event som liknar API Gateway
 
@@ -14,6 +13,7 @@ function generateBookingID(length = 6) {
 
 const event = {
   body: JSON.stringify({
+    // Här kan du ändra fälten till vad du vill
     bookingId: generateBookingID(),
     guestName: "Alice Example",
     guestEmail: "alice@example.com",
@@ -29,7 +29,7 @@ const event = {
 };
 
 const run = async () => {
-  process.env.TABLE_NAME ||= "bonzai-booking-Bookings"; // byt till din DynamoDB-tabell
+  process.env.TABLE_NAME ||= "bonzai-booking-Bookings";
   process.env.AWS_REGION ||= "eu-north-1";
 
   const res = await handler(event);
