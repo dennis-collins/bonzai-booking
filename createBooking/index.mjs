@@ -1,8 +1,14 @@
 import { DynamoDBClient, PutItemCommand } from "@aws-sdk/client-dynamodb";
-import { handler as confirmBooking } from "../confirmBooking/index.mjs";
+import {
+  calculateNights,
+  calculateTotalPrice,
+  validateCapacity,
+} from "../lib/pricing.mjs";
+import { ValidationError } from "../lib/error.mjs";
 
 const client = new DynamoDBClient({ region: "eu-north-1" });
 
+// Creates a booking nr that's more user-friendly.
 function generateBookingID(length = 6) {
   const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
   let result = "";
@@ -12,15 +18,15 @@ function generateBookingID(length = 6) {
   return result;
 }
 
-function handleBooking(data) {
+function handleBooking(data, totalPrice, bookingId) {
   return {
-    bookingId: { S: generateBookingID() },
+    bookingId: { S: bookingId },
     guestName: { S: data.guestName },
     guestEmail: { S: data.guestEmail },
     numGuests: { N: data.numGuests.toString() },
     checkInDate: { S: data.checkInDate },
     checkOutDate: { S: data.checkOutDate },
-    totalPrice: { N: data.totalPrice.toString() },
+    totalPrice: { N: totalPrice.toString() },
     rooms: {
       L: data.rooms.map((r) => ({
         M: {
@@ -29,52 +35,47 @@ function handleBooking(data) {
         },
       })),
     },
+    status: { S: "confirmed" },
+    createdAt: { S: new Date().toISOString() },
   };
 }
 
 export const handler = async (event) => {
   try {
-    console.log("Received event body:", event.body);
-
     const data = JSON.parse(event.body);
 
-    if (
-      !data.guestName ||
-      !data.guestEmail ||
-      !data.numGuests ||
-      !data.checkInDate ||
-      !data.checkOutDate ||
-      !data.totalPrice ||
-      !data.rooms ||
-      !Array.isArray(data.rooms) ||
-      data.rooms.length === 0
-    ) {
-      return {
-        statusCode: 400,
-        body: JSON.stringify({ message: "Missing or invalid booking data" }),
-      };
-    }
-
+    validateCapacity({ numGuests: data.numGuests, rooms: data.rooms });
+    const nights = calculateNights(data.checkInDate, data.checkOutDate);
+    const totalPrice = calculateTotalPrice({ rooms: data.rooms, nights });
+    const bookingId = generateBookingID();
     const params = {
       TableName: process.env.TABLE_NAME,
-      Item: handleBooking(data),
+      Item: handleBooking(data, totalPrice, bookingId),
+      ConditionExpression: "attribute_not_exists(bookingId)",
     };
 
     await client.send(new PutItemCommand(params));
 
-    const confirmation = await confirmBooking({ body: JSON.stringify(data) });
-
     return {
-      statusCode: 200,
-      body: confirmation.body,
+      statusCode: 201,
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        message: "Booking created successfully",
+        booking: {
+          bookingId,
+          ...data,
+          totalPrice,
+          status: "confirmed",
+        },
+      }),
     };
   } catch (error) {
-    console.error("Error creating booking:", error);
+    const status = error instanceof ValidationError ? 400 : 500;
     return {
-      statusCode: 500,
+      statusCode: status,
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        message: "Failed to create booking",
-        error: error.message,
+        message: status === 400 ? error.message : "Failed to create booking",
       }),
     };
   }

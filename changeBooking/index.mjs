@@ -5,7 +5,12 @@ import {
   InternalError,
   errorResponse,
 } from "../lib/error.mjs";
-import { UpdateCommand } from "@aws-sdk/lib-dynamodb";
+import { UpdateCommand, GetCommand } from "@aws-sdk/lib-dynamodb";
+import {
+  calculateNights,
+  calculateTotalPrice,
+  validateCapacity,
+} from "../lib/pricing.mjs";
 
 const ALLOWED_FIELDS = [
   "guestName",
@@ -13,108 +18,71 @@ const ALLOWED_FIELDS = [
   "numGuests",
   "checkInDate",
   "checkOutDate",
-  "totalPrice",
   "rooms",
 ];
 
-function buildUpdate(data) {
-  const names = {};
-  const values = {};
-  const setParts = [];
-
-  for (const key of ALLOWED_FIELDS) {
-    if (Object.prototype.hasOwnProperty.call(data, key)) {
-      const nameAlias = `#${key}`;
-      const valueAlias = `:${key}`;
-      names[nameAlias] = key;
-      values[valueAlias] = data[key];
-      setParts.push(`${nameAlias} = ${valueAlias}`);
-    }
-  }
-
-  // updatedAt från servern
-  const now = new Date().toISOString();
-  names["#updatedAt"] = "updatedAt";
-  values[":updatedAt"] = now;
-  setParts.push("#updatedAt = :updatedAt");
-
-  if (setParts.length === 0) {
-    throw new ValidationError("No updatable fields provided");
-  }
-
-  return {
-    UpdateExpression: `SET ${setParts.join(", ")}`,
-    ExpressionAttributeNames: names,
-    ExpressionAttributeValues: values,
-  };
-}
-
 export const handler = async (event) => {
   try {
-    const pathId = event?.pathParameters?.bookingId;
+    const bookingId = event.pathParameters?.bookingId;
+    if (!bookingId) throw new ValidationError("bookingId is required");
 
-    if (!event?.body) {
-      throw new ValidationError("Missing request body");
-    }
-
-    let body;
+    if (!event.body) throw new ValidationError("Missing body");
+    let patch;
     try {
-      body = JSON.parse(event.body);
+      patch = JSON.parse(event.body);
     } catch {
-      throw new ValidationError("Invalid JSON in request body");
+      throw new ValidationError("Invalid JSON");
     }
 
-    const bookingId = pathId || body.bookingId;
-    if (!bookingId) {
-      throw new ValidationError("bookingId is required");
+    // Checking for valid fields for update.
+    const updates = {};
+    for (const key of ALLOWED_FIELDS) {
+      if (patch[key] !== undefined) updates[key] = patch[key];
+    }
+    if (Object.keys(updates).length === 0) {
+      throw new ValidationError("No valid fields to update");
     }
 
-    // Plocka ut de fält som faktiskt ska uppdateras
-    const toUpdate = {};
-    for (const f of ALLOWED_FIELDS) {
-      if (Object.prototype.hasOwnProperty.call(body, f)) {
-        toUpdate[f] = body[f];
-      }
+    // Read current item
+    const curRes = await ddb.send(
+      new GetCommand({ TableName: process.env.TABLE_NAME, Key: { bookingId } })
+    );
+    if (!curRes.Item) throw new NotFoundError("Booking not found");
+
+    // Merging current data + updates to calc price.
+    const merged = { ...curRes.Item, ...updates };
+
+    validateCapacity({
+      numGuests: merged.numGuests,
+      rooms: merged.rooms,
+    });
+    const nights = calculateNights(merged.checkInDate, merged.checkOutDate);
+    const totalPrice = calculateTotalPrice({ rooms: merged.rooms, nights });
+
+    const exprNames = {};
+    const exprValues = {};
+    const sets = [];
+
+    for (const k of Object.keys(updates)) {
+      exprNames["#" + k] = k;
+      exprValues[":" + k] = updates[k];
+      sets.push(`#${k} = :${k}`);
     }
 
-    const {
-      UpdateExpression,
-      ExpressionAttributeNames,
-      ExpressionAttributeValues,
-    } = buildUpdate(toUpdate);
+    exprNames["#totalPrice"] = "totalPrice";
+    exprValues[":totalPrice"] = totalPrice;
+    sets.push(`#totalPrice = :totalPrice`);
 
-    // Kolla att booking finns, och att nuvarande email matchar
-    let ConditionExpression = "attribute_exists(#pk)";
-    const condNames = { "#pk": "bookingId" };
-    const condValues = {};
-
-    const guardEmail =
-      event?.queryStringParameters?.guestEmail ?? body?.guardGuestEmail;
-
-    if (guardEmail !== undefined && guardEmail !== null && guardEmail !== "") {
-      ConditionExpression += " AND #guardEmail = :guardEmail";
-      condNames["#guardEmail"] = "guestEmail";
-      condValues[":guardEmail"] = guardEmail;
-    }
-
-    const params = {
-      TableName: process.env.TABLE_NAME,
-      Key: { bookingId },
-      ReturnValues: "ALL_NEW",
-      UpdateExpression,
-      ExpressionAttributeNames: { ...ExpressionAttributeNames, ...condNames },
-      ExpressionAttributeValues: {
-        ...ExpressionAttributeValues,
-        ...condValues,
-      },
-      ConditionExpression,
-    };
-
-    const result = await ddb.send(new UpdateCommand(params));
-
-    if (!result?.Attributes) {
-      throw new NotFoundError(`Booking with ID ${bookingId} not found`);
-    }
+    const result = await ddb.send(
+      new UpdateCommand({
+        TableName: process.env.TABLE_NAME,
+        Key: { bookingId },
+        UpdateExpression: "SET " + sets.join(", "),
+        ExpressionAttributeNames: exprNames,
+        ExpressionAttributeValues: exprValues,
+        ReturnValues: "ALL_NEW",
+      })
+    );
 
     return {
       statusCode: 200,
@@ -126,10 +94,12 @@ export const handler = async (event) => {
     };
   } catch (err) {
     if (err?.name === "ConditionalCheckFailedException") {
-      return errorResponse(
-        new NotFoundError("Booking not found or email mismatch")
-      );
+      return errorResponse(new NotFoundError("Booking not found"));
     }
-    return errorResponse(err instanceof Error ? err : new InternalError());
+    if (err instanceof ValidationError || err instanceof NotFoundError) {
+      return errorResponse(err);
+    }
+    console.error("Change booking error:", err);
+    return errorResponse(new InternalError());
   }
 };
